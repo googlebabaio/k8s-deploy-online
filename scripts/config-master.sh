@@ -73,12 +73,12 @@ EOF
 	sysctl -p /etc/sysctl.conf
 	check_ok
 	sleep 1
-    echo "step:------> openBrigeSupport completed."
+  echo "step:------> openBrigeSupport completed."
 }
 
 
 closeSelinux(){
-    echo "step:------> closeselinux begin"
+  echo "step:------> closeselinux begin"
 	setenforce 0
 	sed -i "s/^SELINUX=enforcing/SELINUX=disabled/g" /etc/sysconfig/selinux
 	sed -i "s/^SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
@@ -88,6 +88,7 @@ closeSelinux(){
 	sleep 1
 	echo "step:------> closeselinux completed."
 }
+
 
 configDocker(){
 echo "*********************************************************************************************************"
@@ -104,39 +105,15 @@ sleep 1
 
 echo "step:------> configDocker begin"
 
-cd /usr/local/src/kubeedge
-tar -zxf docker-18.09.5.tgz
-cp docker/* /usr/local/bin
+cd /etc/yum.repos.d/
+wget  https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+yum install docker-ce -y
 
-cd /usr/lib/systemd/system
-
-cat > docker.service <<EOF
-[Unit]
-Description=Docker Application Container Engine
-Documentation=http://docs.docker.io
-
-[Service]
-Environment="PATH=/usr/local/bin:/bin:/sbin:/usr/bin:/usr/sbin"
-EnvironmentFile=-/run/flannel/docker
-ExecStart=/usr/local/bin/dockerd --log-level=error $DOCKER_NETWORK_OPTIONS
-ExecReload=/bin/kill -s HUP $MAINPID
-Restart=on-failure
-RestartSec=5
-LimitNOFILE=infinity
-LimitNPROC=infinity
-LimitCORE=infinity
-Delegate=yes
-KillMode=process
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable docker
-    systemctl start docker
-    check_ok
-    echo "step:------> configDocker completed."
+systemctl daemon-reload
+systemctl enable docker
+systemctl start docker
+check_ok
+echo "step:------> configDocker completed."
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
 echo "*         finish config docker.                                                                         *"
@@ -190,63 +167,30 @@ echo "**************************************************************************
     docker images
 }
 
-configKubelet_feiqi(){
-echo "step:------> begin to config kubelet "
-
-
-cat <<EOF > /usr/lib/systemd/system/kubelet.service
-[Unit]
-Description=kubelet: The Kubernetes Node Agent
-Documentation=https://kubernetes.io/docs/
-
-[Service]
-ExecStart=/usr/bin/kubelet
-Restart=always
-StartLimitInterval=0
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-mkdir -p /usr/lib/systemd/system/kubelet.service.d/
-
-cat <<EOF > /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf
-[Service]
-Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
-Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
-EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
-EnvironmentFile=-/etc/sysconfig/kubelet
-ExecStart=
-ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
-EOF
-
-cat <<EOF > /var/lib/kubelet/kubeadm-flags.env
-KUBELET_KUBEADM_ARGS=--cgroup-driver=cgroupfs --network-plugin=cni
-EOF
-
-cat <<EOF > /etc/sysconfig/kubelet
-KUBELET_EXTRA_ARGS=
-EOF
-
-systemctl daemon-reload
-systemctl enable kubelet && systemctl restart kubelet
-systemctl status kubelet -l
-
-echo "step:------> config kubelet completed"
-}
-
-configKubelet(){
+configKubeTools(){
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
 echo "*        begin to config kube-tools ,including: deploy kubelet/kubectl/kubeadm                          *"
 echo "*                                                                                                       *"
 echo "*********************************************************************************************************"
-	cd /usr/local/src/kubeedge/
-	tar -zxf rpm.tar.gz
-	cd rpm
-	rpm -ivh --force *
-  systemctl enable kubelet.service
+
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+
+yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+
+systemctl enable --now kubelet
+
+systemctl daemon-reload
+systemctl restart kubelet
+
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
 echo "*         finish config kube-tools .                                                                    *"
@@ -258,7 +202,7 @@ echo "**************************************************************************
 configMaster(){
     echo "step:------> begin to config master"
 	systemctl stop kubelet
-    kubeadm init --kubernetes-version=v1.14.1 --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS}
+    kubeadm init --kubernetes-version=v1.16.1 --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS}
     check_ok
 }
 
@@ -268,9 +212,9 @@ configClusterAfter(){
   chown $(id -u):$(id -g) $HOME/.kube/config
 }
 
-configClusterNetwork(){
+configClusterNetwork_calico(){
 	echo "step:------> begin to config cluster network"
-	kubectl create -f /usr/local/src/kubeedge/kube-flannel.yaml
+	kubectl apply -f https://docs.projectcalico.org/v3.9/manifests/calico.yaml
 	echo "step:------> cluster network config completed!"
   echo "step:------> config master completed!"
   echo "*********************************************************************************************************"
@@ -333,11 +277,11 @@ checkHostsAndKubeiniConfig(){
   	copyKubeTools
     prepareEnv
     configDocker
-    loadDockerImgs
-    configKubelet
+    #loadDockerImgs
+    configKubeTools
     configMaster
     configClusterAfter
-    configClusterNetwork
+    configClusterNetwork_calico
   else
   	echo "*********************************************************************************************************"
   	echo "*                  OK ,You can config /etc/hosts and kubeedge.ini at first!                             *"
