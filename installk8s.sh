@@ -37,7 +37,6 @@ case $answer in
 5)
   echo "feiqing....,byebye"
 	exit 1
-	;;
 	sh scripts/config-initos.sh 5
 	;;
 6)
