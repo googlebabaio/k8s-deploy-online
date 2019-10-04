@@ -8,10 +8,10 @@ echo "------------------------------------Kubernetes Install Menu---------------
 echo "| Choose your option                                                                              |"
 echo "|                                                                                                 |"
 echo "|                        1.Install K8s On Master                                                  |"
-echo "|                        2.Init Env For All (OS/docker/images/kubelet)                            |"
+echo "|                        2.Init Env For All (OS/docker/kubelet)                                   |"
 echo "|                        3.Init Env (OS/kubelet)                                                  |"
 echo "|                        4.Install Docker Only                                                    |"
-echo "|                        5.Load Docker Images Only                                                |"
+echo "|                        5.Load Docker Images Only  (zanshifeiqi)                                 |"
 echo "|                        6.Install Docker And Load Docker Images                                  |"
 echo "|                        7.Install Master Only                                                    |"
 echo "|                        8.Uninstall K8s Config                                                   |"
@@ -35,6 +35,9 @@ case $answer in
 	sh scripts/config-initos.sh 4
 	;;
 5)
+  echo "feiqing....,byebye"
+	exit 1
+	;;
 	sh scripts/config-initos.sh 5
 	;;
 6)
