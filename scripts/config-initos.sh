@@ -182,7 +182,7 @@ systemctl restart kubelet
 
 yum install -y bash-completion
 source /usr/share/bash-completion/bash_completion
-source <(kubectl completion bash)
+#source <(kubectl completion bash)
 
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
