@@ -180,6 +180,10 @@ systemctl enable --now kubelet
 systemctl daemon-reload
 systemctl restart kubelet
 
+yum install -y bash-completion
+source /usr/share/bash-completion/bash_completion
+source <(kubectl completion bash)
+
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
 echo "*         finish config kube-tools .                                                                    *"

@@ -191,6 +191,10 @@ systemctl enable --now kubelet
 systemctl daemon-reload
 systemctl restart kubelet
 
+yum install -y bash-completion
+source /usr/share/bash-completion/bash_completion
+source <(kubectl completion bash)
+
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
 echo "*         finish config kube-tools .                                                                    *"
@@ -201,7 +205,7 @@ echo "**************************************************************************
 
 configMaster(){
     echo "step:------> begin to config master"
-	systemctl stop kubelet
+	  systemctl stop kubelet
     kubeadm init --kubernetes-version=v1.16.1 --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS}
     check_ok
 }

@@ -26,5 +26,31 @@ kubectl get pod -n kube-system
 
 
 installIstio(){
+cd $ROOTDIR
+curl -L https://git.io/getLatestIstio | ISTIO_VERSION=1.2.6 sh -
+export PATH="$PATH:/root/istio-1.2.6/bin"
+istioctl verify-install
+cd istio-1.2.6/
+for i in install/kubernetes/helm/istio-init/files/crd*yaml;
+  do kubectl apply -f $i;
+done
+kubectl apply -f install/kubernetes/istio-demo.yaml
+kubectl get pod,svc -n istio-system
+}
+
+installPromethus(){
 
 }
+
+case $1 in
+1)
+  instanllHelm
+	;;
+2)
+  installIstio
+	;;
+*)
+	echo "Error! laozi ling luan le!"
+	exit 1
+	;;
+esac
