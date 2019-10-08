@@ -26,21 +26,21 @@ case $answer in
 	sh scripts/config-master.sh ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 2)
-	sh scripts/config-initos.sh 2
+	sh scripts/config-initos.sh 2 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 3)
-	sh scripts/config-initos.sh 3
+	sh scripts/config-initos.sh 3 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 4)
-	sh scripts/config-initos.sh 4
+	sh scripts/config-initos.sh 4 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 5)
   echo "feiqing....,byebye"
 	exit 1
-	sh scripts/config-initos.sh 5
+	sh scripts/config-initos.sh 5 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 6)
-	sh scripts/config-initos.sh 6
+	sh scripts/config-initos.sh 6 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 7)
 	sh scripts/config-master-only.sh ${KUBEDEPLOY_INI_FULLPATH}

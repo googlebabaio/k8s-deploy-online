@@ -1,4 +1,6 @@
 #!/bin/bash
+KUBEDEPLOY_INI_FULLPATH=$2
+KUBERNETES_VERSION=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep KUBERNETES_VERSION | awk -F '='  '{print $2}')
 
 check_ok() {
     if [ $? != 0 ]
@@ -111,51 +113,6 @@ echo "*                                                                         
 echo "*********************************************************************************************************"
 }
 
-loadDockerImgs(){
-echo "*********************************************************************************************************"
-echo "*   NOTE:                                                                                               *"
-echo "*            Now,We will load some images (pod-infrastructure,pasue,dns,etc..),                         *"
-echo "*            And it will store docker's default datadir !                                               *"
-echo "*                                                                                                       *"
-echo "*            If you want to change the default docker datadir,Please do something else                  *"
-echo "*            After config completed by  manually !                                                      *"
-echo "*                                                                                                       *"
-echo "*                                                                                                       *"
-echo "*********************************************************************************************************"
-echo "step:------> loading some docker images"
-sleep 1
-cd /usr/local/src/kubeedge
-echo "step:------> unzip docker images packages"
-sleep 1
-tar -zxf k8s-imgs.tar.gz
-check_ok
-echo "step:------> unzip docker images packages completed."
-
-  cd images
-  docker load < coredns.tar
-  docker load < etcd.tar
-  docker load < flannel.tar
-  docker load < kube-apiserver.tar
-  docker load < kube-controller-manager.tar
-  docker load < kube-proxy.tar
-  docker load < kube-scheduler.tar
-  docker load < pause.tar
-  docker load < alpine.tar
-  docker load < edgecontroller.tar
-  docker load < nginx.tar
-  docker load < traefik.tar
-echo "step:------> loading some k8s images completed."
-sleep 1
-echo "*********************************************************************************************************"
-echo "*   NOTE:                                                                                               *"
-echo "*         finish load docker images, the images list :                                                  *"
-echo "*                                                                                                       *"
-echo "*********************************************************************************************************"
-    docker images
-}
-
-
-
 configKubeTools(){
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
@@ -173,7 +130,7 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
 
-yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
 
 systemctl enable --now kubelet
 
