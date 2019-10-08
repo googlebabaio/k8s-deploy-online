@@ -5,7 +5,7 @@ KUBEDEPLOY_INI_FULLPATH=$1
 POD_NETWORK_CIDR=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep POD_NETWORK_CIDR | awk -F '='  '{print $2}')
 SERVICE_CIDR=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep SERVICE_CIDR | awk -F '='  '{print $2}')
 APISERVER_ADVERTISE_ADDRESS=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep APISERVER_ADVERTISE_ADDRESS | awk -F '='  '{print $2}')
-
+KUBERNETES_VERSION=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep KUBERNETES_VERSION | awk -F '='  '{print $2}')
 
 
 check_ok() {
@@ -184,7 +184,7 @@ repo_gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
 
-yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
 
 systemctl enable --now kubelet
 
@@ -206,7 +206,7 @@ echo "**************************************************************************
 configMaster(){
     echo "step:------> begin to config master"
 	  systemctl stop kubelet
-    kubeadm init --kubernetes-version=v1.16.1 --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS}
+    kubeadm init --kubernetes-version=v${KUBERNETES_VERSION} --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS}
     check_ok
 }
 
@@ -226,37 +226,6 @@ configClusterNetwork_calico(){
   echo "*   Then you can join any number of worker nodes by running the following on each as root:              *"
   echo "*   kubeadm join $(cat ${KUBEDEPLOY_INI_FULLPATH} |grep APISERVER_ADVERTISE_ADDRESS | awk -F '='  '{print $2}'):6443 --token $(kubeadm token list |grep authentication| awk '{print $1}')  \                                *"
   echo '--discovery-token-ca-cert-hash sha256:'$(openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //')'  *'
-  echo "*                                                                                                       *"
-  echo "*********************************************************************************************************"
-}
-
-copyKubeTools(){
-  echo "*********************************************************************************************************"
-  echo "*   NOTE:                                                                                               *"
-  echo "*        Please wait ,It's time to unzip install packages                                               *"
-  echo "*                                                                                                       *"
-  echo "*********************************************************************************************************"
-  cd /usr/local/src
-	rm -rf kubeedge
-  tar -zxf kubeedge.tar.gz
-	if [  -f "/usr/bin/kubelet" ];then
-		rm -rf /usr/bin/kubelet
-	fi
-
-	if [  -f "/usr/bin/kubectl" ];then
-		rm -rf /usr/bin/kubectl
-	fi
-
-	if [  -f "/usr/bin/kubeadm" ];then
-		rm -rf /usr/bin/kubeadm
-	fi
-  cp /usr/local/src/kubeedge/kubelet /usr/bin/
-  cp /usr/local/src/kubeedge/kubectl /usr/bin/
-  cp /usr/local/src/kubeedge/kubeadm /usr/bin/
-
-  echo "*********************************************************************************************************"
-  echo "*   NOTE:                                                                                               *"
-  echo "*        install packages unzip completed!                                                              *"
   echo "*                                                                                                       *"
   echo "*********************************************************************************************************"
 }

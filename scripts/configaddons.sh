@@ -35,11 +35,12 @@ for i in install/kubernetes/helm/istio-init/files/crd*yaml;
   do kubectl apply -f $i;
 done
 kubectl apply -f install/kubernetes/istio-demo.yaml
+kubectl patch service istio-ingressgateway  -p '{"spec":{"type":"NodePort"}}' -n istio-system
 kubectl get pod,svc -n istio-system
 }
 
 installPromethus(){
-
+cd $ROOTDIR
 }
 
 case $1 in
