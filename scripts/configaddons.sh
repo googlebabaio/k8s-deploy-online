@@ -20,6 +20,7 @@ mv /tmp/linux-amd64/helm /usr/local/bin
 
 kubectl create -f $ROOTDIR/k8s-deploy/addons/helm/helm-account.yaml
 helm init --service-account tiller
+sleep 5
 helm repo update
 kubectl get pod -n kube-system
 }
