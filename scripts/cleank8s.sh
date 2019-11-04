@@ -17,16 +17,18 @@ if [ "${answer}" = "yes" -o "${answer}" = "y" ];then
 	echo "*********************************************************************************************************"
 
 		kubeadm reset --force
-		rm -rf ~/.kube
+		systemctl stop kubelet
 		systemctl stop docker
+		rm -rf ~/.kube
 		rm -rf /var/lib/cni/
 		rm -rf /etc/cni/
+		rm -rf /var/lib/kubelet/*
 		ifconfig cni0 down
 		ifconfig flannel.1 down
 		ifconfig docker0 down
 		ip link delete cni0
 		ip link delete flannel.1
-		
+	
 	echo "*********************************************************************************************************"
 	echo "*   NOTE:                                                                                               *"
 	echo "*         finish clean k8s config                                                                       *"

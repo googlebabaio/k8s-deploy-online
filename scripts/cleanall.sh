@@ -18,24 +18,25 @@ if [ "${answer}" = "yes" -o "${answer}" = "y" ];then
 	echo "*********************************************************************************************************"
 
 		kubeadm reset --force
-		rm -rf ~/.kube
+		systemctl stop kubelet
 		systemctl stop docker
+		systemctl stop docker
+		rm -rf ~/.kube
 		rm -rf /usr/bin/docker
 		rm -rf /usr/lib/systemd/system/docker.service
 		rm -rf /var/lib/cni/
 		rm -rf /var/lib/kubelet/*
 		rm -rf /etc/cni/
+		rm -rf /usr/bin/kube*
+		rm -rf /usr/lib/systemd/system/kubelet.service
 		ifconfig cni0 down
 		ifconfig flannel.1 down
 		ifconfig docker0 down
 		ip link delete cni0
 		ip link delete flannel.1
 		ip link delete docker0
-		systemctl stop kubelet
-		rm -rf /usr/bin/kube*
-		rm -rf /usr/lib/systemd/system/kubelet.service
-		yum -y remove kubelet
 
+		yum -y remove kubelet
 
 n=$(kubectl get ns | grep kubeedge|wc -l)
 if [ 1 = n ] ; then
