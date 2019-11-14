@@ -94,7 +94,7 @@ echo "*                                                                         
 echo "*********************************************************************************************************"
 echo "step:------> remove old docker version"
 sleep 1
-yum remove docker docker-common container-selinux docker-selinux docker-engine
+yum remove -y docker docker-common container-selinux docker-selinux docker-engine
 check_ok
 echo "step:------> remove old docker version completed."
 sleep 1
