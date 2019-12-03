@@ -20,7 +20,6 @@ if [ "${answer}" = "yes" -o "${answer}" = "y" ];then
 		kubeadm reset --force
 		systemctl stop kubelet
 		systemctl stop docker
-		systemctl stop docker
 		rm -rf ~/.kube
 		rm -rf /usr/bin/docker
 		rm -rf /usr/lib/systemd/system/docker.service

@@ -28,7 +28,8 @@ if [ "${answer}" = "yes" -o "${answer}" = "y" ];then
 		ifconfig docker0 down
 		ip link delete cni0
 		ip link delete flannel.1
-	
+		yum remove -y kubelet
+
 	echo "*********************************************************************************************************"
 	echo "*   NOTE:                                                                                               *"
 	echo "*         finish clean k8s config                                                                       *"
