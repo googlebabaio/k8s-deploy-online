@@ -148,44 +148,11 @@ echo "*                                                                         
 echo "*********************************************************************************************************"
 }
 
-copyKubeTools(){
-  echo "*********************************************************************************************************"
-  echo "*   NOTE:                                                                                               *"
-  echo "*        Please wait ,It's time to unzip install packages                                               *"
-  echo "*                                                                                                       *"
-  echo "*********************************************************************************************************"
-  cd /usr/local/src
-	rm -rf kubeedge
-  tar -zxf kubeedge.tar.gz
-	if [  -f "/usr/bin/kubelet" ];then
-		rm -rf /usr/bin/kubelet
-	fi
-
-	if [  -f "/usr/bin/kubectl" ];then
-		rm -rf /usr/bin/kubectl
-	fi
-
-	if [  -f "/usr/bin/kubeadm" ];then
-		rm -rf /usr/bin/kubeadm
-	fi
-  cp /usr/local/src/kubeedge/kubelet /usr/bin/
-  cp /usr/local/src/kubeedge/kubectl /usr/bin/
-  cp /usr/local/src/kubeedge/kubeadm /usr/bin/
-
-  echo "*********************************************************************************************************"
-  echo "*   NOTE:                                                                                               *"
-  echo "*        install packages unzip completed!                                                              *"
-  echo "*                                                                                                       *"
-  echo "*********************************************************************************************************"
-}
-
 
 case $1 in
 2)
-	#copyKubeTools
 	prepareEnv
-	configDocker
-	#loadDockerImgs
+	configDocer
 	configKubeTools
 	;;
 3)
@@ -195,17 +162,6 @@ case $1 in
 4)
 	prepareEnv
 	configDocker
-	;;
-5)
-	#configKubeTools
-	#prepareEnv
-	#loadDockerImgs
-	;;
-6)
-	#copyKubeTools
-	prepareEnv
-	configDocker
-	#loadDockerImgs
 	;;
 *)
 	echo "Error! laozi ling luan le!"
