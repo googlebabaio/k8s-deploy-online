@@ -1,5 +1,3 @@
-本项目
-
 
 # 概述
 
@@ -38,8 +36,11 @@ APISERVER_ADVERTISE_ADDRESS=172.31.0.200
 KUBERNETES_VERSION=1.18.2
 ```
 
+4.修改hosts文件
+如果不修改hosts文件，那么master节点的名字就会按照hosts里面的配置来，比如`localhost.localdomain`，这样看起来很别扭，建议修改为自定义的。
 
-4.进行安装
+
+5.进行安装
 
 ```
 sh k8s-install.sh
@@ -53,7 +54,7 @@ sh k8s-install.sh
 
 如果没有被墙，那应该是很快速就会好的。
 
-5.其他节点的加入
+6.其他节点的加入
 在上面输出最后已经有note提示了，在其他node节点只需要执行：
 ```
 kubeadm join 172.31.0.200 :6443 --token ocoflu.grf7kbj2csus7vbi  \                                *
@@ -67,7 +68,7 @@ W0428 10:16:56.415683   17222 configset.go:202] WARNING: kubeadm cannot validate
 kubeadm join 172.31.0.200:6443 --token ejasko.vci77t0d5ev4ovgp     --discovery-token-ca-cert-hash sha256:54cef6226b401e67b6d3536610e70f3934f1f7516ec2abc09eb57dce1744e4ed
 ```
 
-6.master去除污点
+7.master去除污点
 如果只需要一个master节点做测试，或者需要在master节点部署pod，则需要将master节点的污点去掉，命令如下；
 去除污点:
 
