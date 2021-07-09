@@ -4,7 +4,7 @@
 本项目是为可以方便fq直接在互联网上安装k8s 而写的 **在线安装kubernetes** 的脚本。只需填写apiserver的地址，即可安装一套k8s集群的master节点。对于需要加入集群的node节点，只需要按照安装结束后，`kubeadm join`的提示命令执行即可。
 
 - 目前支持操作系统版本: centos7.5+
-- 支持k8s版本: 1.14.1, 1.15.4 ,1.16.8, 1.18.2
+- 支持k8s版本: 1.14.1, 1.15.4 ,1.16.8, 1.18.2, 1.21.2
 - 提供的网络插件2选1: calico(默认)和flannel
 - docker的版本为：latest
 
@@ -22,7 +22,7 @@ git clone https://github.com/googlebabaio/k8s-deploy-online.git
 
 3.进入目录修改配置文件kubedeploy.ini
 ```
-cd k8s-deploy
+cd k8s-deploy-online
 vi kubedeplo.ini
 ```
 
@@ -33,7 +33,7 @@ vi kubedeplo.ini
 示例如下：
 ```
 APISERVER_ADVERTISE_ADDRESS=172.31.0.200
-KUBERNETES_VERSION=1.18.2
+KUBERNETES_VERSION=1.21.2
 ```
 
 4.修改hosts文件
