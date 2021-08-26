@@ -152,7 +152,7 @@ echo "**************************************************************************
 case $1 in
 2)
 	prepareEnv
-	configDocer
+	configDocker
 	configKubeTools
 	;;
 3)
