@@ -23,7 +23,7 @@ git clone https://github.com/googlebabaio/k8s-deploy-online.git
 3.进入目录修改配置文件kubedeploy.ini
 ```
 cd k8s-deploy-online
-vi kubedeplop.ini
+vi kubedeploy.ini
 ```
 
 要修改的是2个地方：
