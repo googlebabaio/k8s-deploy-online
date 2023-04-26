@@ -174,14 +174,13 @@ echo "*        begin to config kube-tools ,including: deploy kubelet/kubectl/kub
 echo "*                                                                                                       *"
 echo "*********************************************************************************************************"
 
-cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
-baseurl=https://mirrors.cloud.tencent.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
 enabled=1
 gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.cloud.tencent.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.cloud.tencent.com/kubernetes/yum/doc/rpm-package-key.gpg
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
 
 yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
@@ -193,7 +192,7 @@ systemctl restart kubelet
 
 yum install -y bash-completion
 source /usr/share/bash-completion/bash_completion
-#source <(kubectl completion bash)
+source <(kubectl completion bash)
 
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
@@ -202,8 +201,11 @@ echo "*                                                                         
 echo "*********************************************************************************************************"
 }
 
-configKubetools(){
+configKubetools_tmp(){
  curl -LO https://dl.k8s.io/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl
+ chmod +x kubectl
+ mv kubectl /usr/bin/kubectl
+ kubectl version --client
 }
 
 
