@@ -107,7 +107,7 @@ echo "step:------> configDocker begin"
 
 cd /etc/yum.repos.d/
 wget  https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-yum install docker-ce -y
+yum -y install -y docker-ce-19.03.9 
 
 systemctl daemon-reload
 systemctl enable docker
@@ -192,7 +192,7 @@ systemctl restart kubelet
 
 yum install -y bash-completion
 source /usr/share/bash-completion/bash_completion
-source <(kubectl completion bash)
+#source <(kubectl completion bash)
 
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
