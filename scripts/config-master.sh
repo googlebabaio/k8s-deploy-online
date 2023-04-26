@@ -202,6 +202,10 @@ echo "*                                                                         
 echo "*********************************************************************************************************"
 }
 
+configKubetools(){
+ curl -LO https://dl.k8s.io/release/v${KUBERNETES_VERSION}/bin/linux/amd64/kubectl
+}
+
 
 configMaster(){
     echo "step:------> begin to config master"
