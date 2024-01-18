@@ -212,7 +212,7 @@ configKubetools_tmp(){
 configMaster(){
     echo "step:------> begin to config master"
 	  systemctl stop kubelet
-    kubeadm init --kubernetes-version=v${KUBERNETES_VERSION} --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS} --image-repository registry.aliyuncs.com/google_containers
+    kubeadm init --image-repository registry.aliyuncs.com/google_containers --kubernetes-version=v${KUBERNETES_VERSION} --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS} --image-repository registry.aliyuncs.com/google_containers
     check_ok
 }
 
