@@ -7,42 +7,48 @@ KUBEDEPLOY_INI_FULLPATH=$(pwd)/kubedeploy.ini
 echo "------------------------------------Kubernetes Install Menu----------------------------------------"
 echo "| Choose your option                                                                              |"
 echo "|                                                                                                 |"
-echo "|                        1.Install K8s On Master                                                  |"
-echo "|                        2.Init Env For All (OS/docker/kubelet)                                   |"
-echo "|                        3.Init Env (OS/kubelet)                                                  |"
-echo "|                        4.Install Docker Only                                                    |"
-echo "|                        5.Uninstall K8s Config                                                   |"
-echo "|                        6.Uninstall AlL Config                                                   |"
-echo "|                        7.Exit                                                                   |"
+echo "|                        1.Install K8s On Master (Docker)                                          |"
+echo "|                        2.Install K8s On Master (containerd) - 推荐                              |"
+echo "|                        3.Init Env For All (OS/docker/kubelet)                                   |"
+echo "|                        4.Init Env (OS/kubelet)                                                  |"
+echo "|                        5.Install Docker Only                                                    |"
+echo "|                        6.Uninstall K8s Config                                                   |"
+echo "|                        7.Uninstall AlL Config                                                   |"
+echo "|                        8.Exit                                                                   |"
 echo "|                                                                                                 |"
 echo "---------------------------------------------------------------------------------------------------"
-echo "Choose your option (1-10):"
+echo "Choose your option (1-8):"
 read answer
 case $answer in
 1)
+	echo "使用Docker作为容器运行时..."
 	sh scripts/config-master.sh ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 2)
-	sh scripts/config-initos.sh 2 ${KUBEDEPLOY_INI_FULLPATH}
+	echo "使用containerd作为容器运行时（推荐）..."
+	sh scripts/config-master-containerd.sh ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 3)
-	sh scripts/config-initos.sh 3 ${KUBEDEPLOY_INI_FULLPATH}
+	sh scripts/config-initos.sh 2 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 4)
-	sh scripts/config-initos.sh 4 ${KUBEDEPLOY_INI_FULLPATH}
+	sh scripts/config-initos.sh 3 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 5)
-	sh scripts/cleank8s.sh
+	sh scripts/config-initos.sh 4 ${KUBEDEPLOY_INI_FULLPATH}
 	;;
 6)
-	sh scripts/cleanall.sh
+	sh scripts/cleank8s.sh
 	;;
 7)
+	sh scripts/cleanall.sh
+	;;
+8)
 	echo "byebye"
 	exit 1
 	;;
 *)
-	echo "Error! The number you input isn't 1 to 7"
+	echo "Error! The number you input isn't 1 to 8"
 	exit 1
 	;;
 esac
