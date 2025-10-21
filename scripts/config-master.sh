@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# 检查root权限
+if [[ $EUID -ne 0 ]]; then
+    echo "Error: 此脚本需要root权限运行"
+    exit 1
+fi
+
 KUBEDEPLOY_INI_FULLPATH=$1
 
 POD_NETWORK_CIDR=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep POD_NETWORK_CIDR | awk -F '='  '{print $2}')
@@ -7,12 +13,20 @@ SERVICE_CIDR=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep SERVICE_CIDR | awk -F '='  '
 APISERVER_ADVERTISE_ADDRESS=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep APISERVER_ADVERTISE_ADDRESS | awk -F '='  '{print $2}')
 KUBERNETES_VERSION=$(cat ${KUBEDEPLOY_INI_FULLPATH} |grep KUBERNETES_VERSION | awk -F '='  '{print $2}')
 
+# 提取大版本号用于仓库URL
+KUBERNETES_MAJOR_VERSION=$(echo $KUBERNETES_VERSION | cut -d'.' -f1-2)
+
 
 check_ok() {
-    if [ $? != 0 ]
-        then
-        echo "Error, Check the error log."
+    local exit_code=$?
+    local step_name=${1:-"操作"}
+    
+    if [ $exit_code != 0 ]; then
+        echo "Error: ${step_name} 失败，退出码: $exit_code"
+        echo "请检查错误日志并重试"
         exit 1
+    else
+        echo "Success: ${step_name} 完成"
     fi
 }
 
@@ -25,7 +39,7 @@ echo "**************************************************************************
 
     closeSwapoff
     closeFirewalld
-    openBrigeSupport
+    openBridgeSupport
     closeSelinux
 
 echo "*********************************************************************************************************"
@@ -54,7 +68,7 @@ echo "step:------> closeFirewalld completed."
 }
 
 
-openBrigeSupport(){
+openBridgeSupport(){
     echo "step:------> openBrigeSupport begin"
 
 	cat <<EOF >  /etc/sysctl.d/k8s.conf
@@ -71,7 +85,7 @@ net.netfilter.nf_conntrack_max=2310720
 EOF
 
 	sysctl -p /etc/sysctl.conf
-	check_ok
+	check_ok "配置网络桥接支持"
 	sleep 1
   echo "step:------> openBrigeSupport completed."
 }
@@ -84,7 +98,7 @@ closeSelinux(){
 	sed -i "s/^SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
 	sed -i "s/^SELINUX=permissive/SELINUX=disabled/g" /etc/sysconfig/selinux
 	sed -i "s/^SELINUX=permissive/SELINUX=disabled/g" /etc/selinux/config
-	check_ok
+	check_ok "关闭SELinux"
 	sleep 1
 	echo "step:------> closeselinux completed."
 }
@@ -99,7 +113,7 @@ echo "**************************************************************************
 echo "step:------> remove old docker version"
 sleep 1
 yum remove -y docker docker-common container-selinux docker-selinux docker-engine
-check_ok
+check_ok "卸载旧版本Docker"
 echo "step:------> remove old docker version completed."
 sleep 1
 
@@ -107,12 +121,28 @@ echo "step:------> configDocker begin"
 
 cd /etc/yum.repos.d/
 wget  https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
-yum -y install -y docker-ce-19.03.9 
+yum -y install -y docker-ce-19.03.9 docker-ce-cli-19.03.9 containerd.io
+
+# 配置Docker daemon
+mkdir -p /etc/docker
+cat <<EOF > /etc/docker/daemon.json
+{
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2",
+  "registry-mirrors": [
+    "https://registry.aliyuncs.com"
+  ]
+}
+EOF
 
 systemctl daemon-reload
 systemctl enable docker
 systemctl start docker
-check_ok
+check_ok "配置Docker"
 echo "step:------> configDocker completed."
 echo "*********************************************************************************************************"
 echo "*   NOTE:                                                                                               *"
@@ -177,10 +207,10 @@ echo "**************************************************************************
 cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/
 enabled=1
 gpgcheck=1
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/RPM-GPG-KEY-kubernetes
 EOF
 
 yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
@@ -212,8 +242,8 @@ configKubetools_tmp(){
 configMaster(){
     echo "step:------> begin to config master"
 	  systemctl stop kubelet
-    kubeadm init --image-repository registry.aliyuncs.com/google_containers --kubernetes-version=v${KUBERNETES_VERSION} --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS} --image-repository registry.aliyuncs.com/google_containers
-    check_ok
+    kubeadm init --image-repository registry.aliyuncs.com/google_containers --kubernetes-version=v${KUBERNETES_VERSION} --pod-network-cidr=${POD_NETWORK_CIDR} --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS} --service-cidr=${SERVICE_CIDR}
+    check_ok "初始化Master节点"
 }
 
 configClusterAfter(){
@@ -224,7 +254,7 @@ configClusterAfter(){
 
 configClusterNetwork_calico(){
 	echo "step:------> begin to config cluster network"
-	kubectl apply -f https://docs.projectcalico.org/v3.9/manifests/calico.yaml
+	kubectl apply -f https://docs.projectcalico.org/v3.19/manifests/calico.yaml
 	echo "step:------> cluster network config completed!"
   echo "step:------> config master completed!"
   echo "*********************************************************************************************************"
