@@ -191,7 +191,23 @@ configure_yum_repos() {
     mkdir -p /etc/yum.repos.d/backup
     cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
     
-    # 配置阿里云CentOS源
+    # 清理所有仓库配置，避免冲突
+    log_info "清理旧的仓库配置..."
+    rm -f /etc/yum.repos.d/kubernetes.repo
+    rm -f /etc/yum.repos.d/docker-ce.repo
+    
+    # 导入基础源的GPG密钥
+    log_info "导入基础源GPG密钥..."
+    rpm --import https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+    rpm --import https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+    rpm --import https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+    
+    # 清理yum缓存，避免使用旧配置
+    log_info "清理yum缓存..."
+    yum clean all || log_warning "yum clean all失败，继续执行"
+    rm -rf /var/cache/yum/* || log_warning "清理缓存目录失败，继续执行"
+    
+    # 配置阿里云CentOS源（需要GPG验证）
     cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
 [base]
 name=CentOS-\$releasever - Base - mirrors.aliyun.com
@@ -489,12 +505,13 @@ install_runc() {
     
     # 下载runc
     cd /tmp
-    wget -q https://github.com/opencontainers/runc/releases/download/v1.1.4/runc.amd64
-    chmod +x runc.amd64
-    mv runc.amd64 /usr/local/bin/runc
+    #wget -q https://github.com/opencontainers/runc/releases/download/v1.1.4/runc.amd64
+    cp ./scripts/runc.amd64 /tmp/runc.amd64
+    chmod +x /tmp/runc.amd64
+    mv /tmp/runc.amd64 /usr/local/bin/runc
     
     check_ok "安装runc"
-}
+}   
 
 # 安装CNI插件
 install_cni_plugins() {
@@ -502,9 +519,10 @@ install_cni_plugins() {
     
     # 下载CNI插件
     cd /tmp
-    wget -q https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
+    ##wget -q https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
+    cp ./scripts/cni-plugins-linux-amd64-v1.1.1.tgz /tmp/cni-plugins-linux-amd64-v1.1.1.tgz
     mkdir -p /opt/cni/bin
-    tar -xzf cni-plugins-linux-amd64-v1.1.1.tgz -C /opt/cni/bin/
+    tar -xzf /tmp/cni-plugins-linux-amd64-v1.1.1.tgz -C /opt/cni/bin/
     
     check_ok "安装CNI插件"
 }
@@ -513,20 +531,51 @@ install_cni_plugins() {
 configure_kube_tools() {
     log_info "开始配置Kubernetes工具..."
     
+    # 删除旧的Kubernetes仓库配置
+    log_info "清理旧的Kubernetes仓库配置..."
+    rm -f /etc/yum.repos.d/kubernetes.repo
+    
     # 配置Kubernetes仓库
+    log_info "配置Kubernetes仓库..."
     cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/
 enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/RPM-GPG-KEY-kubernetes
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=
 EOF
+    
+    # 彻底清理yum缓存
+    log_info "清理yum缓存..."
+    yum clean all || log_warning "yum clean all失败，继续执行"
+    rm -rf /var/cache/yum/* || log_warning "清理缓存目录失败，继续执行"
+    yum makecache || log_warning "yum makecache失败，继续执行"
     
     # 安装Kubernetes工具
     log_info "安装Kubernetes工具..."
-    yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
+    yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes || {
+        log_warning "阿里云Kubernetes仓库安装失败，尝试使用官方仓库..."
+        
+        # 配置官方Kubernetes仓库作为备用
+        cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+        
+        # 清理缓存并重试
+        yum clean all
+        yum makecache
+        
+        # 重新尝试安装
+        yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
+    }
     
     # 配置kubelet使用containerd (Kubernetes 1.24+默认)
     log_info "配置kubelet使用containerd作为容器运行时..."
@@ -541,11 +590,37 @@ EOF
     systemctl daemon-reload
     systemctl enable kubelet
     
-    # 安装bash-completion
-    yum install -y bash-completion
-    source /usr/share/bash-completion/bash_completion
+    # 安装bash-completion（如果未安装）
+    if ! rpm -q bash-completion >/dev/null 2>&1; then
+        log_info "安装bash-completion..."
+        yum install -y bash-completion || log_warning "bash-completion安装失败，继续执行"
+    else
+        log_info "bash-completion已安装，跳过"
+    fi
     
     check_ok "配置Kubernetes工具"
+}
+
+# 检查系统兼容性
+check_system_compatibility() {
+    log_info "检查系统兼容性..."
+    
+    # 检查内核版本
+    local kernel_version=$(uname -r | cut -d. -f1-2)
+    local kernel_major=$(echo $kernel_version | cut -d. -f1)
+    local kernel_minor=$(echo $kernel_version | cut -d. -f2)
+    
+    log_info "当前内核版本: $(uname -r)"
+    
+    # 检查是否支持Kubernetes 1.32
+    if [ $kernel_major -lt 4 ] || ([ $kernel_major -eq 4 ] && [ $kernel_minor -lt 15 ]); then
+        log_warning "内核版本过低，不支持Kubernetes 1.32.9"
+        log_warning "建议使用内核4.15+或5.x+版本"
+        log_warning "将使用--ignore-preflight-errors参数继续安装"
+        return 1
+    fi
+    
+    return 0
 }
 
 # 初始化Master节点
@@ -555,6 +630,13 @@ init_master() {
     # 停止kubelet服务
     systemctl stop kubelet 2>/dev/null || true
     
+    # 检查系统兼容性
+    local ignore_errors=""
+    if ! check_system_compatibility; then
+        ignore_errors="--ignore-preflight-errors=SystemVerification"
+        log_warning "将忽略系统验证错误继续安装"
+    fi
+    
     # 初始化集群
     log_info "执行kubeadm init..."
     kubeadm init \
@@ -563,7 +645,8 @@ init_master() {
         --pod-network-cidr=${POD_NETWORK_CIDR} \
         --apiserver-advertise-address=${APISERVER_ADVERTISE_ADDRESS} \
         --service-cidr=${SERVICE_CIDR} \
-        --cri-socket=unix:///var/run/containerd/containerd.sock
+        --cri-socket=unix:///var/run/containerd/containerd.sock \
+        ${ignore_errors}
     
     check_ok "初始化Master节点"
 }

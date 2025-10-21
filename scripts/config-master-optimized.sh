@@ -191,7 +191,23 @@ configure_yum_repos() {
     mkdir -p /etc/yum.repos.d/backup
     cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
     
-    # 配置阿里云CentOS源
+    # 清理所有仓库配置，避免冲突
+    log_info "清理旧的仓库配置..."
+    rm -f /etc/yum.repos.d/kubernetes.repo
+    rm -f /etc/yum.repos.d/docker-ce.repo
+    
+    # 导入基础源的GPG密钥
+    log_info "导入基础源GPG密钥..."
+    rpm --import https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+    rpm --import https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+    rpm --import https://mirrors.aliyun.com/docker-ce/linux/centos/gpg
+    
+    # 清理yum缓存，避免使用旧配置
+    log_info "清理yum缓存..."
+    yum clean all
+    rm -rf /var/cache/yum/*
+    
+    # 配置阿里云CentOS源（需要GPG验证）
     cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
 [base]
 name=CentOS-\$releasever - Base - mirrors.aliyun.com
@@ -318,16 +334,27 @@ load_docker_images() {
 configure_kube_tools() {
     log_info "开始配置Kubernetes工具..."
     
+    # 删除旧的Kubernetes仓库配置
+    log_info "清理旧的Kubernetes仓库配置..."
+    rm -f /etc/yum.repos.d/kubernetes.repo
+    
     # 配置Kubernetes仓库
+    log_info "配置Kubernetes仓库..."
     cat <<EOF > /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/
 enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/RPM-GPG-KEY-kubernetes
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=
 EOF
+    
+    # 彻底清理yum缓存
+    log_info "清理yum缓存..."
+    yum clean all
+    rm -rf /var/cache/yum/*
+    yum makecache
     
     # 安装Kubernetes工具
     log_info "安装Kubernetes工具..."

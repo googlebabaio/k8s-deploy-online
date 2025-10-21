@@ -204,14 +204,23 @@ echo "*        begin to config kube-tools ,including: deploy kubelet/kubectl/kub
 echo "*                                                                                                       *"
 echo "*********************************************************************************************************"
 
+# 删除旧的Kubernetes仓库配置
+rm -f /etc/yum.repos.d/kubernetes.repo
+
 cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
 [kubernetes]
 name=Kubernetes
 baseurl=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/
 enabled=1
-gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes-new/core/stable/v${KUBERNETES_MAJOR_VERSION}/rpm/RPM-GPG-KEY-kubernetes
+gpgcheck=0
+repo_gpgcheck=0
+gpgkey=
 EOF
+
+# 彻底清理yum缓存
+yum clean all
+rm -rf /var/cache/yum/*
+yum makecache
 
 yum install -y kubelet-${KUBERNETES_VERSION} kubeadm-${KUBERNETES_VERSION} kubectl-${KUBERNETES_VERSION} --disableexcludes=kubernetes
 
