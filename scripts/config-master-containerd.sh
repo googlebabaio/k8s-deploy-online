@@ -183,6 +183,53 @@ disable_selinux() {
     check_ok "关闭SELinux"
 }
 
+# 配置系统repo源
+configure_yum_repos() {
+    log_info "开始配置阿里云yum源..."
+    
+    # 备份原始repo文件
+    mkdir -p /etc/yum.repos.d/backup
+    cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
+    
+    # 配置阿里云CentOS源
+    cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
+[base]
+name=CentOS-\$releasever - Base - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/os/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[updates]
+name=CentOS-\$releasever - Updates - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/updates/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[extras]
+name=CentOS-\$releasever - Extras - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/extras/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[epel]
+name=Extra Packages for Enterprise Linux 7 - \$basearch - mirrors.aliyun.com
+baseurl=https://mirrors.aliyun.com/epel/7/\$basearch
+failovermethod=priority
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+EOF
+    
+    # 清理yum缓存
+    yum clean all
+    yum makecache
+    
+    check_ok "配置阿里云yum源"
+}
+
 # 配置Docker和containerd
 configure_docker_containerd() {
     log_info "开始配置Docker和containerd..."
@@ -196,8 +243,44 @@ configure_docker_containerd() {
     cd /etc/yum.repos.d/
     wget -q https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
     
+    # 检查Docker仓库是否可用
+    log_info "检查Docker仓库..."
+    yum repolist | grep docker-ce || {
+        log_error "Docker仓库配置失败"
+        exit 1
+    }
+    
+    # 检查可用版本
+    log_info "检查Docker CE可用版本..."
+    yum list available docker-ce --showduplicates | grep ${DOCKER_VERSION} || {
+        log_warning "指定版本 ${DOCKER_VERSION} 不可用，检查可用版本："
+        yum list available docker-ce --showduplicates | head -10
+        log_info "尝试安装最新版本..."
+        yum install -y docker-ce docker-ce-cli containerd.io
+    }
+    
     # 安装Docker CE (会自动安装containerd)
-    yum install -y docker-ce-${DOCKER_VERSION} docker-ce-cli-${DOCKER_VERSION} containerd.io
+    log_info "安装Docker CE组件..."
+    if yum list available docker-ce-${DOCKER_VERSION} >/dev/null 2>&1; then
+        yum install -y docker-ce-${DOCKER_VERSION} docker-ce-cli-${DOCKER_VERSION} containerd.io
+    else
+        log_warning "指定版本不可用，安装最新版本..."
+        yum install -y docker-ce docker-ce-cli containerd.io
+    fi
+    
+    # 验证Docker安装
+    log_info "验证Docker安装..."
+    which docker || {
+        log_error "Docker安装失败，未找到docker命令"
+        log_info "尝试重新安装..."
+        yum reinstall -y docker-ce-${DOCKER_VERSION} docker-ce-cli-${DOCKER_VERSION}
+    }
+    
+    # 检查Docker命令
+    docker --version || {
+        log_error "Docker命令不可用"
+        exit 1
+    }
     
     # 配置Docker daemon (仅作为客户端)
     mkdir -p /etc/docker
@@ -218,37 +301,184 @@ EOF
     # 配置containerd (主要容器运行时)
     log_info "配置containerd作为主要容器运行时..."
     mkdir -p /etc/containerd
-    containerd config default > /etc/containerd/config.toml
     
-    # 修改containerd配置
-    sed -i 's/SystemdCgroup = false/SystemdCgroup = true/g' /etc/containerd/config.toml
-    
-    # 配置containerd镜像源
-    cat <<EOF >> /etc/containerd/config.toml
-[plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-    endpoint = ["https://registry.aliyuncs.com"]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
-    endpoint = ["https://registry.aliyuncs.com/google_containers"]
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.k8s.io"]
-    endpoint = ["https://registry.aliyuncs.com/google_containers"]
+    # 创建完整的containerd配置文件
+    cat <<EOF > /etc/containerd/config.toml
+version = 2
+root = "/var/lib/containerd"
+state = "/run/containerd"
+
+[grpc]
+  address = "/run/containerd/containerd.sock"
+  uid = 0
+  gid = 0
+  max_recv_message_size = 16777216
+  max_send_message_size = 16777216
+
+[ttrpc]
+  address = ""
+  uid = 0
+  gid = 0
+
+[debug]
+  address = ""
+  uid = 0
+  gid = 0
+  level = ""
+
+[metrics]
+  address = ""
+  grpc_histogram = false
+
+[cgroup]
+  path = ""
+
+[timeouts]
+  "io.containerd.timeout.shim.cleanup" = "5s"
+  "io.containerd.timeout.shim.load" = "5s"
+  "io.containerd.timeout.shim.shutdown" = "3s"
+  "io.containerd.timeout.task.state" = "2s"
+
+[plugins]
+  [plugins."io.containerd.gc.v1.scheduler"]
+    pause_threshold = 0.02
+    deletion_threshold = 0
+    mutation_threshold = 100
+    schedule_delay = "0s"
+    startup_delay = "100ms"
+  [plugins."io.containerd.grpc.v1.cri"]
+    disable_tcp_service = true
+    stream_server_address = "127.0.0.1"
+    stream_server_port = "0"
+    stream_idle_timeout = "4h0m0s"
+    enable_selinux = false
+    selinux_category_range = 1024
+    sandbox_image = "registry.k8s.io/pause:3.9"
+    stats_collect_period = 10
+    systemd_cgroup = true
+    enable_tls_streaming = false
+    max_container_log_line_size = 16384
+    disable_cgroup = false
+    disable_apparmor = false
+    restrict_oom_score_adj = false
+    max_concurrent_downloads = 3
+    disable_proc_mount = false
+    unset_seccomp_profile = ""
+    tolerate_missing_hugetlb_controller = true
+    disable_hugetlb_controller = true
+    ignore_image_defined_volumes = false
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      snapshotter = "overlayfs"
+      default_runtime_name = "runc"
+      no_pivot = false
+      disable_snapshot_annotations = true
+      discard_unpacked_layers = false
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+          runtime_type = "io.containerd.runc.v2"
+          runtime_engine = ""
+          runtime_root = ""
+          privileged_without_host_devices = false
+          base_runtime_spec = ""
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+            SystemdCgroup = true
+    [plugins."io.containerd.grpc.v1.cri".cni]
+      bin_dir = "/opt/cni/bin"
+      conf_dir = "/etc/cni/net.d"
+      max_conf_num = 1
+      conf_template = ""
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
+          endpoint = ["https://registry.aliyuncs.com"]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
+          endpoint = ["https://registry.aliyuncs.com/google_containers"]
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.k8s.io"]
+          endpoint = ["https://registry.aliyuncs.com/google_containers"]
+      [plugins."io.containerd.grpc.v1.cri".registry.configs]
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."registry.aliyuncs.com".tls]
+          insecure_skip_verify = true
+        [plugins."io.containerd.grpc.v1.cri".registry.configs."registry.aliyuncs.com".auth]
+          username = ""
+          password = ""
+          auth = ""
+          identity_token = ""
+    [plugins."io.containerd.grpc.v1.cri".image_decryption]
+      key_model = ""
+    [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
+      tls_cert_file = ""
+      tls_private_key_file = ""
 EOF
+    
+    # 验证containerd配置文件
+    log_info "验证containerd配置文件..."
+    containerd config dump > /dev/null
+    if [ $? -ne 0 ]; then
+        log_error "containerd配置文件有语法错误，请检查"
+        exit 1
+    fi
     
     # 启动服务
     systemctl daemon-reload
     systemctl enable docker
     systemctl enable containerd
-    systemctl start docker
+    
+    # 先启动containerd
+    log_info "启动containerd服务..."
     systemctl start containerd
+    sleep 3
+    
+    # 再启动docker
+    log_info "启动Docker服务..."
+    systemctl start docker
+    sleep 3
+    
+    # 验证服务状态
+    log_info "检查服务状态..."
+    systemctl is-active --quiet containerd
+    if [ $? -ne 0 ]; then
+        log_error "containerd服务启动失败"
+        systemctl status containerd
+        exit 1
+    fi
+    
+    systemctl is-active --quiet docker
+    if [ $? -ne 0 ]; then
+        log_error "Docker服务启动失败"
+        systemctl status docker
+        exit 1
+    fi
     
     # 验证安装
-    docker version > /dev/null
-    containerd --version > /dev/null
+    log_info "验证Docker和containerd安装..."
     
-    log_info "Docker版本:"
-    docker --version
-    log_info "containerd版本:"
-    containerd --version
+    # 检查Docker
+    if command -v docker >/dev/null 2>&1; then
+        docker --version
+    else
+        log_error "Docker命令不可用"
+        exit 1
+    fi
+    
+    # 检查containerd
+    if command -v containerd >/dev/null 2>&1; then
+        containerd --version
+    else
+        log_error "containerd命令不可用"
+        exit 1
+    fi
+    
+    # 验证服务连接
+    log_info "测试Docker和containerd连接..."
+    docker version > /dev/null 2>&1 || {
+        log_warning "Docker服务可能未完全启动，等待5秒..."
+        sleep 5
+        docker version > /dev/null || {
+            log_error "Docker服务连接失败"
+            systemctl status docker
+            exit 1
+        }
+    }
     
     check_ok "配置Docker和containerd"
 }
@@ -442,6 +672,7 @@ main() {
     fi
     
     # 执行配置步骤
+    configure_yum_repos
     close_swap
     close_firewall
     configure_bridge

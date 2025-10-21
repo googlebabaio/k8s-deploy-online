@@ -183,6 +183,53 @@ disable_selinux() {
     check_ok "关闭SELinux"
 }
 
+# 配置系统repo源
+configure_yum_repos() {
+    log_info "开始配置阿里云yum源..."
+    
+    # 备份原始repo文件
+    mkdir -p /etc/yum.repos.d/backup
+    cp /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/ 2>/dev/null || true
+    
+    # 配置阿里云CentOS源
+    cat <<EOF > /etc/yum.repos.d/CentOS-Base.repo
+[base]
+name=CentOS-\$releasever - Base - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/os/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[updates]
+name=CentOS-\$releasever - Updates - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/updates/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[extras]
+name=CentOS-\$releasever - Extras - mirrors.aliyun.com
+failovermethod=priority
+baseurl=https://mirrors.aliyun.com/centos/\$releasever/extras/\$basearch/
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/centos/RPM-GPG-KEY-CentOS-7
+
+[epel]
+name=Extra Packages for Enterprise Linux 7 - \$basearch - mirrors.aliyun.com
+baseurl=https://mirrors.aliyun.com/epel/7/\$basearch
+failovermethod=priority
+enabled=1
+gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/epel/RPM-GPG-KEY-EPEL-7
+EOF
+    
+    # 清理yum缓存
+    yum clean all
+    yum makecache
+    
+    check_ok "配置阿里云yum源"
+}
+
 # 配置Docker
 configure_docker() {
     log_info "开始配置Docker..."
@@ -411,6 +458,7 @@ main() {
     fi
     
     # 执行配置步骤
+    configure_yum_repos
     close_swap
     close_firewall
     configure_bridge
