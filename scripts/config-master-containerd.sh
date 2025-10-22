@@ -506,7 +506,7 @@ install_runc() {
     # 下载runc
     cd /tmp
     #wget -q https://github.com/opencontainers/runc/releases/download/v1.1.4/runc.amd64
-    cp /root/k8s-deploy-online/scripts/runc.amd64 /tmp/runc.amd64
+    cp /root/k8s-deploy-online/scripts/soft/runc.amd64 /tmp/runc.amd64
     chmod +x /tmp/runc.amd64
     mv /tmp/runc.amd64 /usr/local/bin/runc
     
@@ -520,7 +520,7 @@ install_cni_plugins() {
     # 下载CNI插件
     cd /tmp
     ##wget -q https://github.com/containernetworking/plugins/releases/download/v1.1.1/cni-plugins-linux-amd64-v1.1.1.tgz
-    cp /root/k8s-deploy-online/scripts/cni-plugins-linux-amd64-v1.1.1.tgz /tmp/cni-plugins-linux-amd64-v1.1.1.tgz
+    cp /root/k8s-deploy-online/scripts/soft/cni-plugins-linux-amd64-v1.1.1.tgz /tmp/cni-plugins-linux-amd64-v1.1.1.tgz
     mkdir -p /opt/cni/bin
     tar -xzf /tmp/cni-plugins-linux-amd64-v1.1.1.tgz -C /opt/cni/bin/
     
